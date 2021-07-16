@@ -29,7 +29,6 @@ func filter(file io.Reader) string {
 	for _, value := range data {
 		hashText := xxh3.HashString(value[0])
 		if !bloom_filter.Has(hashText) {
-			bloom_filter.Add(hashText)
 			ret = append(ret, value)
 		}
 	}
@@ -55,6 +54,13 @@ func add(file io.Reader) {
 func filterHandler(ctx *fasthttp.RequestCtx) {
 	ctx.SetContentType("application/json")
 	ctx.SetStatusCode(http.StatusOK)
+
+	multipartFormBoundary := ctx.Request.Header.MultipartFormBoundary()
+	if len(multipartFormBoundary) == 0 || string(ctx.Method()) != "POST" {
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
+
 	header, err := ctx.FormFile("file")
 	if err != nil {
 		log.Fatal(err)
@@ -68,6 +74,13 @@ func filterHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func addHandler(ctx *fasthttp.RequestCtx) {
+	ctx.SetStatusCode(http.StatusOK)
+	multipartFormBoundary := ctx.Request.Header.MultipartFormBoundary()
+	if len(multipartFormBoundary) == 0 || string(ctx.Method()) != "POST" {
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
+
 	header, err := ctx.FormFile("file")
 	if err != nil {
 		log.Fatal(err)
@@ -78,7 +91,6 @@ func addHandler(ctx *fasthttp.RequestCtx) {
 		log.Fatal(err)
 	}
 	add(file)
-	ctx.SetStatusCode(http.StatusOK)
 }
 
 func main() {
