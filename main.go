@@ -18,11 +18,12 @@ var bloom_filter = blobloom.NewSyncOptimized(blobloom.Config{
 	FPRate:   0.05,
 })
 
-type JSONData [][]string
+type FilterJSONData [][]string
+type AddJSONData []string
 
 func filter(file io.Reader) string {
-	var data JSONData
-	var ret JSONData
+	var data FilterJSONData
+	var ret FilterJSONData
 
 	json.NewDecoder(file).Decode(&data)
 	for _, value := range data {
@@ -37,6 +38,18 @@ func filter(file io.Reader) string {
 		log.Fatal(err)
 	}
 	return jsonResult
+}
+
+func add(file io.Reader) {
+	var data AddJSONData
+
+	json.NewDecoder(file).Decode(&data)
+	for _, value := range data {
+		hashText := xxh3.HashString(value)
+		if !bloom_filter.Has(hashText) {
+			bloom_filter.Add(hashText)
+		}
+	}
 }
 
 func filterHandler(ctx *fasthttp.RequestCtx) {
@@ -54,11 +67,37 @@ func filterHandler(ctx *fasthttp.RequestCtx) {
 	fmt.Fprint(ctx, filter(file))
 }
 
-func main() {
-	handler := fasthttp.CompressHandler(filterHandler)
+func addHandler(ctx *fasthttp.RequestCtx) {
+	header, err := ctx.FormFile("file")
+	if err != nil {
+		log.Fatal(err)
+	}
+	file, err := header.Open()
+	defer file.Close()
+	if err != nil {
+		log.Fatal(err)
+	}
+	add(file)
+	ctx.SetStatusCode(http.StatusOK)
+}
 
+func main() {
+	m := func(ctx *fasthttp.RequestCtx) {
+		switch string(ctx.Path()) {
+		case "/bloom":
+			filterHandler(ctx)
+		case "/bloom/":
+			filterHandler(ctx)
+		case "/add":
+			addHandler(ctx)
+		case "/add/":
+			addHandler(ctx)
+		default:
+			ctx.Error("Unsupported path", fasthttp.StatusNotFound)
+		}
+	}
 	server := &fasthttp.Server{
-		Handler:            handler,
+		Handler:            m,
 		MaxRequestBodySize: 32 << 20,
 	}
 	println("Starting server...")
