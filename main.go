@@ -14,7 +14,7 @@ import (
 
 var json = jsoniter.ConfigFastest
 
-func filter(f *blobloom.Filter, file io.Reader) string {
+func filter(f *blobloom.SyncFilter, file io.Reader) string {
 	var data []interface{}
 	var ret []interface{}
 
@@ -35,7 +35,7 @@ func filter(f *blobloom.Filter, file io.Reader) string {
 }
 
 func main() {
-	f := blobloom.NewOptimized(blobloom.Config{
+	f := blobloom.NewSyncOptimized(blobloom.Config{
 		Capacity: 10_000_000_000,
 		FPRate:   0.05,
 	})
