@@ -14,8 +14,8 @@ import (
 
 var json = jsoniter.ConfigFastest
 var bloom_filter = blobloom.NewSyncOptimized(blobloom.Config{
-	Capacity: 300_000,
-	FPRate:   0.1,
+	Capacity: 10_000_000_000,
+	FPRate:   0.05,
 })
 
 type JSONData [][]string
