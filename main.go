@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 
@@ -18,21 +17,14 @@ var json = jsoniter.ConfigFastest
 func filter(f *blobloom.Filter, file io.Reader) string {
 	var data []interface{}
 	var ret []interface{}
-	value, err := ioutil.ReadAll(file)
-	if err != nil {
-		log.Fatal(err)
-	}
-	json.Unmarshal([]byte(value), &data)
+
+	json.NewDecoder(file).Decode(&data)
 	for _, value := range data {
 		data_in := value.([]interface{})
-		text := data_in[0].(string)
-		hashText := xxh3.Hash([]byte(text))
+		hashText := xxh3.Hash([]byte(data_in[0].(string)))
 		if !f.Has(hashText) {
 			f.Add(hashText)
 			ret = append(ret, data_in)
-			if err != nil {
-				log.Fatal(err)
-			}
 		}
 	}
 	jsonResult, err := json.Marshal(ret)
