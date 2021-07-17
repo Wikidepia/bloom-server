@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -21,7 +20,7 @@ var bloom_filter = blobloom.NewSyncOptimized(blobloom.Config{
 type FilterJSONData [][]string
 type AddJSONData []string
 
-func filter(file io.Reader) string {
+func filter(file io.Reader) []byte {
 	var data FilterJSONData
 	var ret FilterJSONData
 
@@ -32,7 +31,7 @@ func filter(file io.Reader) string {
 			ret = append(ret, value)
 		}
 	}
-	jsonResult, err := json.MarshalToString(ret)
+	jsonResult, err := json.Marshal(ret)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -70,7 +69,7 @@ func filterHandler(ctx *fasthttp.RequestCtx) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Fprint(ctx, filter(file))
+	ctx.SetBody(filter(file))
 }
 
 func addHandler(ctx *fasthttp.RequestCtx) {
