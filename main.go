@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"runtime"
 
 	"github.com/greatroar/blobloom"
 	jsoniter "github.com/json-iterator/go"
@@ -61,6 +62,8 @@ func filterHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	m := func(ctx *fasthttp.RequestCtx) {
 		switch string(ctx.Path()) {
 		case "/bloom":
