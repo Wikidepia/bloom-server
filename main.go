@@ -3,6 +3,7 @@ package main
 import (
 	"io"
 	"net/http"
+	_ "net/http/pprof"
 	"runtime"
 
 	"github.com/greatroar/blobloom"
@@ -21,9 +22,9 @@ type FilterJSONData [][]string
 
 func filter(file io.Reader) []byte {
 	var data FilterJSONData
-	var ret FilterJSONData
 
 	json.NewDecoder(file).Decode(&data)
+	ret := make(FilterJSONData, 0, len(data))
 	for _, value := range data {
 		hashText := xxh3.HashString(value[0])
 		if !bloom_filter.Has(hashText) {
@@ -66,6 +67,10 @@ func filterHandler(ctx *fasthttp.RequestCtx) {
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
+	go func() {
+		http.ListenAndServe(":6060", nil)
+	}()
+
 	m := func(ctx *fasthttp.RequestCtx) {
 		switch string(ctx.Path()) {
 		case "/bloom":
@@ -81,5 +86,7 @@ func main() {
 		MaxRequestBodySize: 32 << 20,
 	}
 	println("Starting server...")
-	server.ListenAndServe(":8000")
+	if err := server.ListenAndServe(":8000"); err != nil {
+		println(err.Error())
+	}
 }
