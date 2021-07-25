@@ -2,7 +2,6 @@ package main
 
 import (
 	"io"
-	"log"
 	"net/http"
 	"runtime"
 
@@ -34,7 +33,7 @@ func filter(file io.Reader) []byte {
 	}
 	jsonResult, err := json.Marshal(ret)
 	if err != nil {
-		log.Fatal(err)
+		return []byte(err.Error())
 	}
 	return jsonResult
 }
@@ -51,14 +50,17 @@ func filterHandler(ctx *fasthttp.RequestCtx) {
 
 	header, err := ctx.FormFile("file")
 	if err != nil {
-		log.Fatal(err)
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
 	}
 	file, err := header.Open()
 	defer file.Close()
 	if err != nil {
-		log.Fatal(err)
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
 	}
-	ctx.SetBody(filter(file))
+
+	ctx.Write(filter(file))
 }
 
 func main() {
@@ -79,7 +81,5 @@ func main() {
 		MaxRequestBodySize: 32 << 20,
 	}
 	println("Starting server...")
-	if err := server.ListenAndServe(":8000"); err != nil {
-		log.Fatalf("Error in ListenAndServe: %s", err)
-	}
+	server.ListenAndServe(":8000")
 }
