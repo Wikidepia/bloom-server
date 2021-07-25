@@ -82,8 +82,10 @@ func main() {
 		}
 	}
 	server := &fasthttp.Server{
-		Handler:            m,
-		MaxRequestBodySize: 32 << 20,
+		Handler:                      m,
+		MaxRequestBodySize:           32 << 20,
+		ReduceMemoryUsage:            true,
+		DisablePreParseMultipartForm: true,
 	}
 	println("Starting server...")
 	if err := server.ListenAndServe(":8000"); err != nil {
