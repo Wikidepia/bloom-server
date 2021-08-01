@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"io"
 	"net/http"
 	_ "net/http/pprof"
@@ -60,8 +61,13 @@ func filterHandler(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
-
-	ctx.Write(filter(file))
+	gunzip, err := gzip.NewReader(file)
+	defer gunzip.Close()
+	if err != nil {
+		ctx.SetStatusCode(http.StatusBadRequest)
+		return
+	}
+	ctx.Write(filter(gunzip))
 }
 
 func main() {
@@ -83,7 +89,7 @@ func main() {
 	}
 	server := &fasthttp.Server{
 		Handler:                      m,
-		MaxRequestBodySize:           32 << 20,
+		MaxRequestBodySize:           8 << 20,
 		ReduceMemoryUsage:            true,
 		DisablePreParseMultipartForm: true,
 	}
