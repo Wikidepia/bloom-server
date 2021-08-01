@@ -8,12 +8,10 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
-	"runtime/debug"
 	"strings"
 
 	"github.com/greatroar/blobloom"
 	"github.com/klauspost/compress/gzip"
-	"github.com/valyala/fasthttp"
 	"github.com/zeebo/xxh3"
 )
 
@@ -35,37 +33,6 @@ func filter(file io.Reader) string {
 	return sb.String()
 }
 
-func filterHandler(ctx *fasthttp.RequestCtx) {
-	ctx.SetContentType("application/json")
-	ctx.SetStatusCode(http.StatusOK)
-
-	multipartFormBoundary := ctx.Request.Header.MultipartFormBoundary()
-	if len(multipartFormBoundary) == 0 || string(ctx.Method()) != "POST" {
-		ctx.SetStatusCode(http.StatusBadRequest)
-		return
-	}
-
-	header, err := ctx.FormFile("file")
-	if err != nil {
-		ctx.SetStatusCode(http.StatusBadRequest)
-		return
-	}
-	file, err := header.Open()
-	defer file.Close()
-	if err != nil {
-		ctx.SetStatusCode(http.StatusBadRequest)
-		return
-	}
-	gunzip, err := gzip.NewReader(file)
-	defer gunzip.Close()
-	if err != nil {
-		ctx.SetStatusCode(http.StatusBadRequest)
-		return
-	}
-	ctx.WriteString(filter(gunzip))
-	debug.FreeOSMemory()
-}
-
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -77,7 +44,11 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Fprint(w, filter(file))
+		gunzip, err := gzip.NewReader(file)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Fprint(w, filter(gunzip))
 	})
 	println("Server started")
 	log.Fatal(http.ListenAndServe(":8000", nil))
