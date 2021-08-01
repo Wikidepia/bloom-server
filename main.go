@@ -1,44 +1,36 @@
 package main
 
 import (
+	"bufio"
 	"io"
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
 	"runtime/debug"
+	"strings"
 
 	"github.com/greatroar/blobloom"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/klauspost/compress/gzip"
 	"github.com/valyala/fasthttp"
 	"github.com/zeebo/xxh3"
 )
 
-var json = jsoniter.ConfigFastest
 var bloom_filter = blobloom.NewSyncOptimized(blobloom.Config{
 	Capacity: 10_000_000_000,
 	FPRate:   0.05,
 })
 
-type FilterJSONData [][]string
-
-func filter(file io.Reader) []byte {
-	var data FilterJSONData
-
-	json.NewDecoder(file).Decode(&data)
-	ret := make(FilterJSONData, 0, len(data))
-	for _, value := range data {
-		hashText := xxh3.HashString(value[0])
+func filter(file io.Reader) string {
+	var sb strings.Builder
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		hashText := xxh3.Hash(scanner.Bytes())
 		if !bloom_filter.Has(hashText) {
 			bloom_filter.Add(hashText)
-			ret = append(ret, value)
+			sb.Write(scanner.Bytes())
 		}
 	}
-	jsonResult, err := json.Marshal(ret)
-	if err != nil {
-		return []byte(err.Error())
-	}
-	return jsonResult
+	return sb.String()
 }
 
 func filterHandler(ctx *fasthttp.RequestCtx) {
@@ -68,7 +60,7 @@ func filterHandler(ctx *fasthttp.RequestCtx) {
 		ctx.SetStatusCode(http.StatusBadRequest)
 		return
 	}
-	ctx.Write(filter(gunzip))
+	ctx.WriteString(filter(gunzip))
 	debug.FreeOSMemory()
 }
 
