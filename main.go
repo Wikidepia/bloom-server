@@ -1,14 +1,15 @@
 package main
 
 import (
-	"compress/gzip"
 	"io"
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
+	"runtime/debug"
 
 	"github.com/greatroar/blobloom"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/klauspost/compress/gzip"
 	"github.com/valyala/fasthttp"
 	"github.com/zeebo/xxh3"
 )
@@ -68,6 +69,7 @@ func filterHandler(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	ctx.Write(filter(gunzip))
+	debug.FreeOSMemory()
 }
 
 func main() {
