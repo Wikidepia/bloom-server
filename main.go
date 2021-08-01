@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"runtime"
@@ -70,25 +72,13 @@ func main() {
 	go func() {
 		http.ListenAndServe(":6060", nil)
 	}()
-
-	m := func(ctx *fasthttp.RequestCtx) {
-		switch string(ctx.Path()) {
-		case "/bloom":
-			filterHandler(ctx)
-		case "/bloom/":
-			filterHandler(ctx)
-		default:
-			ctx.Error("Unsupported path", fasthttp.StatusNotFound)
+	http.HandleFunc("/bloom/", func(w http.ResponseWriter, r *http.Request) {
+		file, _, err := r.FormFile("file")
+		if err != nil {
+			log.Fatal(err)
 		}
-	}
-	server := &fasthttp.Server{
-		Handler:                      m,
-		MaxRequestBodySize:           8 << 20,
-		ReduceMemoryUsage:            true,
-		DisablePreParseMultipartForm: true,
-	}
-	println("Starting server...")
-	if err := server.ListenAndServe(":8000"); err != nil {
-		println(err.Error())
-	}
+		fmt.Fprint(w, filter(file))
+	})
+	println("Server started")
+	log.Fatal(http.ListenAndServe(":8000", nil))
 }
