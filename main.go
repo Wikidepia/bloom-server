@@ -27,7 +27,7 @@ func filter(file io.Reader) string {
 		hashText := xxh3.Hash(scanner.Bytes())
 		if !bloom_filter.Has(hashText) {
 			bloom_filter.Add(hashText)
-			sb.Write(scanner.Bytes())
+			sb.WriteString(scanner.Text() + "\n")
 		}
 	}
 	return sb.String()
