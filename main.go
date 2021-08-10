@@ -19,6 +19,7 @@ var bloomFilter = blobloom.NewSyncOptimized(blobloom.Config{
 	Capacity: 10_000_000_000,
 	FPRate:   0.05,
 })
+var newLines = []byte("\n")
 
 func filter(file io.Reader) string {
 	var sb strings.Builder
@@ -27,7 +28,7 @@ func filter(file io.Reader) string {
 		hashText := xxh3.Hash(scanner.Bytes())
 		if !bloomFilter.Has(hashText) {
 			bloomFilter.Add(hashText)
-			sb.WriteString(scanner.Text() + "\n")
+			sb.Write(append(scanner.Bytes(), newLines...))
 		}
 	}
 	return sb.String()
@@ -44,10 +45,14 @@ func main() {
 		file, _, err := r.FormFile("file")
 		if err != nil {
 			log.Info().Err(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 		gunzip, err := gzip.NewReader(file)
 		if err != nil {
 			log.Info().Err(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
 		fmt.Fprint(w, filter(gunzip))
 	})
