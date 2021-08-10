@@ -4,18 +4,18 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	_ "net/http/pprof"
-	"runtime"
 	"strings"
 
 	"github.com/greatroar/blobloom"
 	"github.com/klauspost/compress/gzip"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/zeebo/xxh3"
 )
 
-var bloom_filter = blobloom.NewSyncOptimized(blobloom.Config{
+var bloomFilter = blobloom.NewSyncOptimized(blobloom.Config{
 	Capacity: 10_000_000_000,
 	FPRate:   0.05,
 })
@@ -25,8 +25,8 @@ func filter(file io.Reader) string {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		hashText := xxh3.Hash(scanner.Bytes())
-		if !bloom_filter.Has(hashText) {
-			bloom_filter.Add(hashText)
+		if !bloomFilter.Has(hashText) {
+			bloomFilter.Add(hashText)
 			sb.WriteString(scanner.Text() + "\n")
 		}
 	}
@@ -34,22 +34,25 @@ func filter(file io.Reader) string {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
+	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	go func() {
 		http.ListenAndServe(":6060", nil)
 	}()
+
 	http.HandleFunc("/bloom/", func(w http.ResponseWriter, r *http.Request) {
+		r.ParseMultipartForm(1 * 1024 * 1024)
 		file, _, err := r.FormFile("file")
 		if err != nil {
-			log.Fatal(err)
+			log.Info().Err(err)
 		}
 		gunzip, err := gzip.NewReader(file)
 		if err != nil {
-			log.Fatal(err)
+			log.Info().Err(err)
 		}
 		fmt.Fprint(w, filter(gunzip))
 	})
-	println("Server started")
-	log.Fatal(http.ListenAndServe(":8000", nil))
+	log.Info().Msg("Server started")
+	if err := http.ListenAndServe(":8000", nil); err != nil {
+		log.Info().Err(err).Msg("Startup failed")
+	}
 }
