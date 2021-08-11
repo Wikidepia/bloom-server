@@ -7,7 +7,6 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	"strings"
-	"unsafe"
 
 	redisbloom "github.com/RedisBloom/redisbloom-go"
 	"github.com/gomodule/redigo/redis"
@@ -23,35 +22,25 @@ var (
 	newLines = []byte("\n")
 )
 
-// https://github.com/golang/go/issues/25484#issuecomment-391415660
-func ByteSlice2String(bs []byte) string {
-	return *(*string)(unsafe.Pointer(&bs))
-}
-
 func filter(file io.Reader) string {
 	var sb strings.Builder
 	var lines []string
-	var existURLs []string
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		lines = append(lines, ByteSlice2String(scanner.Bytes()))
+		lines = append(lines, scanner.Text())
 	}
-	result, err := client.BfExistsMulti("urls", lines)
+
+	result, err := client.BfAddMulti("urls", lines)
 	if err != nil {
 		log.Info().Err(err)
 	}
 
 	for i := 0; i < len(result); i++ {
-		if result[i] == 0 {
+		if result[i] == 1 {
 			sb.WriteString(lines[i])
 			sb.Write(newLines)
-			existURLs = append(existURLs, lines[i])
 		}
-	}
-	_, err = client.BfAddMulti("urls", existURLs)
-	if err != nil {
-		log.Info().Err(err)
 	}
 	return sb.String()
 }
