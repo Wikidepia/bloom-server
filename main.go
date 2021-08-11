@@ -57,7 +57,7 @@ func main() {
 		fmt.Fprint(w, filter(gunzip))
 	})
 	log.Info().Msg("Server started")
-	if err := http.ListenAndServe(":8000", nil); err != nil {
+	if err := http.ListenAndServe(":80", nil); err != nil {
 		log.Info().Err(err).Msg("Startup failed")
 	}
 }
