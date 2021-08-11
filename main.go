@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/greatroar/blobloom"
-	"github.com/klauspost/compress/gzip"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/zeebo/xxh3"
@@ -48,13 +47,7 @@ func main() {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		gunzip, err := gzip.NewReader(file)
-		if err != nil {
-			log.Info().Err(err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		fmt.Fprint(w, filter(gunzip))
+		fmt.Fprint(w, filter(file))
 	})
 	log.Info().Msg("Server started")
 	if err := http.ListenAndServe(":80", nil); err != nil {
