@@ -26,14 +26,13 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 	var sb strings.Builder
 	var lines []string
 
-	r.ParseMultipartForm(1 * 1024 * 1024)
 	file, _, err := r.FormFile("file")
-	defer file.Close()
 	if err != nil {
 		log.Info().Err(err).Msg("Error opening file")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -58,14 +57,14 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 
 func addHandler(w http.ResponseWriter, r *http.Request) {
 	var lines []string
-	r.ParseMultipartForm(1 * 1024 * 1024)
+
 	file, _, err := r.FormFile("file")
-	defer file.Close()
 	if err != nil {
 		log.Info().Err(err).Msg("Error opening file")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
@@ -89,7 +88,6 @@ func infoHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	fmt.Println(result["Capacity"])
 	resultMarshal, err := json.Marshal(result)
 	if err != nil {
 		log.Info().Err(err).Msg("Error marshalling result")
@@ -101,6 +99,8 @@ func infoHandler(w http.ResponseWriter, r *http.Request) {
 
 func makeHandler(fn func(w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		r.ParseMultipartForm(1 * 1024 * 1024)
+		log.Info().Str("ip_address", r.RemoteAddr).Str("url", r.URL.Path).Msg("")
 		fn(w, r)
 	}
 }
@@ -112,9 +112,9 @@ func main() {
 		http.ListenAndServe(":6060", nil)
 	}()
 
-	http.HandleFunc("/deduplicate/", deduplicateHandler)
-	http.HandleFunc("/add/", addHandler)
-	http.HandleFunc("/info/", infoHandler)
+	http.HandleFunc("/deduplicate/", makeHandler(deduplicateHandler))
+	http.HandleFunc("/add/", makeHandler(addHandler))
+	http.HandleFunc("/info/", makeHandler(infoHandler))
 
 	log.Info().Msg("Server started")
 	if err := http.ListenAndServe(":8000", nil); err != nil {
