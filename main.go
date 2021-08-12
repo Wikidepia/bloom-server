@@ -53,6 +53,7 @@ func main() {
 	http.HandleFunc("/bloom/", func(w http.ResponseWriter, r *http.Request) {
 		r.ParseMultipartForm(1 * 1024 * 1024)
 		file, _, err := r.FormFile("file")
+		defer file.Close()
 		if err != nil {
 			log.Info().Err(err)
 			w.WriteHeader(http.StatusBadRequest)
