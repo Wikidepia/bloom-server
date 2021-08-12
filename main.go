@@ -30,7 +30,7 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 	file, _, err := r.FormFile("file")
 	defer file.Close()
 	if err != nil {
-		log.Info().Err(err)
+		log.Info().Err(err).Msg("Error opening file")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -43,7 +43,7 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 
 	result, err := client.BfExistsMulti("urls", lines)
 	if err != nil {
-		log.Info().Err(err)
+		log.Info().Err(err).Msg("Redis Error BF.MEXISTS")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -62,7 +62,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 	file, _, err := r.FormFile("file")
 	defer file.Close()
 	if err != nil {
-		log.Info().Err(err)
+		log.Info().Err(err).Msg("Error opening file")
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -75,7 +75,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err = client.BfAddMulti("urls", lines)
 	if err != nil {
-		log.Info().Err(err)
+		log.Info().Err(err).Msg("Redis Error BF.MADD")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -85,14 +85,14 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 func infoHandler(w http.ResponseWriter, r *http.Request) {
 	result, err := client.Info("urls")
 	if err != nil {
-		log.Info().Err(err)
+		log.Info().Err(err).Msg("Redis Error BF.INFO")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	fmt.Println(result["Capacity"])
 	resultMarshal, err := json.Marshal(result)
 	if err != nil {
-		log.Info().Err(err)
+		log.Info().Err(err).Msg("Error marshalling result")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -107,6 +107,7 @@ func makeHandler(fn func(w http.ResponseWriter, r *http.Request)) http.HandlerFu
 
 func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+
 	go func() {
 		http.ListenAndServe(":6060", nil)
 	}()
