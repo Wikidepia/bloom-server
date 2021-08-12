@@ -18,8 +18,7 @@ var (
 	pool = &redis.Pool{Dial: func() (redis.Conn, error) {
 		return redis.Dial("tcp", "localhost:6379", redis.DialPassword(""))
 	}}
-	client   = redisbloom.NewClientFromPool(pool, "bloom-cah")
-	newLines = []byte("\n")
+	client = redisbloom.NewClientFromPool(pool, "bloom-cah")
 )
 
 func filter(file io.Reader) string {
@@ -28,6 +27,7 @@ func filter(file io.Reader) string {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
+		// Possible optimization
 		lines = append(lines, scanner.Text())
 	}
 
@@ -36,10 +36,9 @@ func filter(file io.Reader) string {
 		log.Info().Err(err)
 	}
 
-	for i := 0; i < len(result); i++ {
-		if result[i] == 1 {
-			sb.WriteString(lines[i])
-			sb.Write(newLines)
+	for index, existNum := range result {
+		if existNum == 1 {
+			sb.WriteString(lines[index] + "\n")
 		}
 	}
 	return sb.String()
