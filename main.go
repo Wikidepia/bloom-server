@@ -27,6 +27,11 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 	var lines []string
 	var duplicateCount uint64
 
+	key := r.Form.Get("key")
+	if key != "main" && key != "clipped" && key != "urls" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		log.Info().Err(err).Msg("Error opening file")
@@ -41,7 +46,7 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 		lines = append(lines, scanner.Text())
 	}
 
-	result, err := client.BfExistsMulti("urls", lines)
+	result, err := client.BfExistsMulti(key, lines)
 	if err != nil {
 		log.Info().Err(err).Msg("Redis Error BF.MEXISTS")
 		w.WriteHeader(http.StatusInternalServerError)
@@ -70,6 +75,11 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 func addHandler(w http.ResponseWriter, r *http.Request) {
 	var lines []string
 
+	key := r.Form.Get("key")
+	if key != "main" && key != "clipped" && key != "urls" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		log.Info().Err(err).Msg("Error opening file")
@@ -84,7 +94,7 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		lines = append(lines, scanner.Text())
 	}
 
-	_, err = client.BfAddMulti("urls", lines)
+	_, err = client.BfAddMulti(key, lines)
 	if err != nil {
 		log.Info().Err(err).Msg("Redis Error BF.MADD")
 		w.WriteHeader(http.StatusInternalServerError)
