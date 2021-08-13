@@ -53,14 +53,6 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := pool.Dial()
-	if err != nil {
-		log.Info().Err(err).Msg("Redis Error Dial")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	defer c.Close()
-
 	for index, existNum := range result {
 		if existNum == 0 {
 			sb.WriteString(lines[index] + "\n")
@@ -68,7 +60,6 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 			duplicateCount++
 		}
 	}
-	c.Do("INCRBY", "duplicateCount", duplicateCount)
 	fmt.Fprint(w, sb.String())
 }
 
@@ -104,29 +95,18 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func infoHandler(w http.ResponseWriter, r *http.Request) {
-	result, err := client.Info("urls")
+	key := r.Form.Get("key")
+	if key != "main" && key != "clipped" && key != "urls" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	result, err := client.Info(key)
 	if err != nil {
 		log.Info().Err(err).Msg("Redis Error BF.INFO")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	c, err := pool.Dial()
-	if err != nil {
-		log.Info().Err(err).Msg("Redis Error Dial")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	defer c.Close()
-
-	duplicateCount, err := redis.Int64(c.Do("GET", "duplicateCount"))
-	if err != nil {
-		log.Info().Err(err).Msg("Redis Error GET duplicateCount")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	result["Duplicate Count"] = duplicateCount
 	resultMarshal, err := json.Marshal(result)
 	if err != nil {
 		log.Info().Err(err).Msg("Error marshalling result")
