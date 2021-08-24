@@ -14,18 +14,18 @@ rb = Client()
 async def deduplicate(key: str, file: UploadFile = File(...)):
     if key not in ["clipped", "main", "urls"]:
         return "Invalid key"
-    items = (await file.read()).decode("utf-8", "ignore").splitlines()
+    items = (await file.read()).splitlines()
     ret = rb.bfMExists(key, *items)
-    return "\n".join([items[idx] for idx, x in enumerate(ret) if x == 0])
+    return b"\n".join([items[idx] for idx, x in enumerate(ret) if x == 0])
 
 
 @app.post("/add", response_class=PlainTextResponse)
 async def add(key: str, file: UploadFile = File(...)):
     if key not in ["clipped", "main", "urls"]:
         return "Invalid key"
-    items = (await file.read()).decode("utf-8", "ignore").splitlines()
+    items = (await file.read()).splitlines()
     ret = rb.bfMAdd(key, *items)
-    return "\n".join([items[idx] for idx, x in enumerate(ret) if x == 0])
+    return b"\n".join([items[idx] for idx, x in enumerate(ret) if x == 0])
 
 
 @app.get("/info")
