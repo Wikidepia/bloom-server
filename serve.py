@@ -16,7 +16,7 @@ async def deduplicate(key: str, file: UploadFile = File(...)):
         return "Invalid key"
     items = (await file.read()).splitlines()
     ret = rb.bfMExists(key, *items)
-    return b"\n".join([items[idx] for idx, x in enumerate(ret) if x == 0])
+    return b"\n".join(items[idx] for idx, code in enumerate(ret) if code == 0)
 
 
 @app.post("/add", response_class=PlainTextResponse)
@@ -25,7 +25,7 @@ async def add(key: str, file: UploadFile = File(...)):
         return "Invalid key"
     items = (await file.read()).splitlines()
     ret = rb.bfMAdd(key, *items)
-    return b"\n".join([items[idx] for idx, x in enumerate(ret) if x == 0])
+    return b"\n".join(items[idx] for idx, code in enumerate(ret) if code == 0)
 
 
 @app.get("/info")
