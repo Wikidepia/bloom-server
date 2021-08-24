@@ -1,3 +1,12 @@
+# Redis Bloom Filter Server
+
+## Setup
+1. Install Python
+2. Install Redis & RedisBloom
+3. Install requirements.txt
+
+Run with uvicorn : `uvicorn serve:app --host 0.0.0.0 --port 80 --workers 12`
+
 ## Endpoints
 
 1. `/deduplicate/`, to remove duplicate from list of data. This will return list of unique data
