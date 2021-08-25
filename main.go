@@ -60,8 +60,23 @@ func ctx2strings(ctx *fasthttp.RequestCtx) ([]string, error) {
 	return lines, nil
 }
 
+func isMember(key string, value string) (bool, error) {
+	c, err := pool.Dial()
+	if err != nil {
+		return false, err
+	}
+	defer c.Close()
+
+	hashMember, err := redis.Int(c.Do("SISMEMBER", key, value))
+	if err != nil {
+		return false, err
+	}
+	return hashMember == 1, nil
+}
+
 func deduplicateHandlerFunc(ctx *fasthttp.RequestCtx) {
 	var sb strings.Builder
+
 	key := b2s(ctx.FormValue("key"))
 	if key != "main" && key != "clipped" && key != "urls" {
 		ctx.Error("key is not main, clipped or urls", fasthttp.StatusBadRequest)
@@ -69,21 +84,13 @@ func deduplicateHandlerFunc(ctx *fasthttp.RequestCtx) {
 	}
 
 	hash := hex.EncodeToString(NewSHA256(ctx.RemoteIP()))
-	c, err := pool.Dial()
+	hashMember, err := isMember("whitelist-deduplicate", hash)
 	if err != nil {
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
 		log.Info().Err(err).Msg("")
 		return
 	}
-	defer c.Close()
-
-	hashMember, err := redis.Int(c.Do("SISMEMBER", "whitelist-deduplicate", hash))
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
-		log.Info().Err(err).Msg("")
-		return
-	}
-	if hashMember == 0 {
+	if !hashMember {
 		ctx.Error("hash is not in whitelist-deduplicate", fasthttp.StatusBadRequest)
 		return
 	}
@@ -121,21 +128,13 @@ func addHandlerFunc(ctx *fasthttp.RequestCtx) {
 	}
 
 	hash := hex.EncodeToString(NewSHA256(ctx.RemoteIP()))
-	c, err := pool.Dial()
+	hashMember, err := isMember("whitelist-add", hash)
 	if err != nil {
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
 		log.Info().Err(err).Msg("")
 		return
 	}
-	defer c.Close()
-
-	hashMember, err := redis.Int(c.Do("SISMEMBER", "whitelist-add", hash))
-	if err != nil {
-		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
-		log.Info().Err(err).Msg("")
-		return
-	}
-	if hashMember == 0 {
+	if !hashMember {
 		ctx.Error("hash is not in whitelist-add", fasthttp.StatusBadRequest)
 		return
 	}
