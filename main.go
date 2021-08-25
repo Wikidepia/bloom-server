@@ -2,8 +2,11 @@ package main
 
 import (
 	"bufio"
+	"encoding/hex"
 	"strings"
 	"unsafe"
+
+	"crypto/sha256"
 
 	redisbloom "github.com/RedisBloom/redisbloom-go"
 	"github.com/gomodule/redigo/redis"
@@ -25,6 +28,11 @@ var (
 func b2s(b []byte) string {
 	/* #nosec G103 */
 	return *(*string)(unsafe.Pointer(&b))
+}
+
+func NewSHA256(data []byte) []byte {
+	hash := sha256.Sum256(data)
+	return hash[:]
 }
 
 func ctx2strings(ctx *fasthttp.RequestCtx) ([]string, error) {
@@ -54,8 +62,32 @@ func ctx2strings(ctx *fasthttp.RequestCtx) ([]string, error) {
 
 func deduplicateHandlerFunc(ctx *fasthttp.RequestCtx) {
 	var sb strings.Builder
-
 	key := b2s(ctx.FormValue("key"))
+	if key != "main" && key != "clipped" && key != "urls" {
+		ctx.Error("key is not main, clipped or urls", fasthttp.StatusBadRequest)
+		return
+	}
+
+	hash := hex.EncodeToString(NewSHA256(ctx.RemoteIP()))
+	c, err := pool.Dial()
+	if err != nil {
+		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		log.Info().Err(err).Msg("")
+		return
+	}
+	defer c.Close()
+
+	hashMember, err := redis.Int(c.Do("SISMEMBER", "whitelist-deduplicate", hash))
+	if err != nil {
+		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		log.Info().Err(err).Msg("")
+		return
+	}
+	if hashMember == 0 {
+		ctx.Error("hash is not in whitelist-deduplicate", fasthttp.StatusBadRequest)
+		return
+	}
+
 	lines, err := ctx2strings(ctx)
 	if err != nil {
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
@@ -83,6 +115,31 @@ func deduplicateHandlerFunc(ctx *fasthttp.RequestCtx) {
 
 func addHandlerFunc(ctx *fasthttp.RequestCtx) {
 	key := b2s(ctx.FormValue("key"))
+	if key != "main" && key != "clipped" && key != "urls" {
+		ctx.Error("key is not main, clipped or urls", fasthttp.StatusBadRequest)
+		return
+	}
+
+	hash := hex.EncodeToString(NewSHA256(ctx.RemoteIP()))
+	c, err := pool.Dial()
+	if err != nil {
+		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		log.Info().Err(err).Msg("")
+		return
+	}
+	defer c.Close()
+
+	hashMember, err := redis.Int(c.Do("SISMEMBER", "whitelist-add", hash))
+	if err != nil {
+		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		log.Info().Err(err).Msg("")
+		return
+	}
+	if hashMember == 0 {
+		ctx.Error("hash is not in whitelist-add", fasthttp.StatusBadRequest)
+		return
+	}
+
 	lines, err := ctx2strings(ctx)
 	if err != nil {
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
@@ -102,6 +159,11 @@ func addHandlerFunc(ctx *fasthttp.RequestCtx) {
 
 func infoHandlerFunc(ctx *fasthttp.RequestCtx) {
 	key := b2s(ctx.FormValue("key"))
+	if key != "main" && key != "clipped" && key != "urls" {
+		ctx.Error("key is not main, clipped or urls", fasthttp.StatusBadRequest)
+		return
+	}
+
 	result, err := client.Info(key)
 	if err != nil {
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
@@ -119,6 +181,35 @@ func infoHandlerFunc(ctx *fasthttp.RequestCtx) {
 	ctx.SetStatusCode(fasthttp.StatusOK)
 }
 
+func whitelistHandlerFunc(ctx *fasthttp.RequestCtx) {
+	hash := ctx.FormValue("hash")
+	key := ctx.FormValue("key")
+
+	c, err := pool.Dial()
+	if err != nil {
+		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		log.Info().Err(err).Msg("")
+		return
+	}
+	defer c.Close()
+
+	if string(key) == "add" {
+		_, err = c.Do("SADD", "whitelist-add", hash)
+	} else if string(key) == "deduplicate" {
+		_, err = c.Do("SADD", "whitelist-deduplicate", hash)
+	} else {
+		ctx.Error("key is not valid", fasthttp.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
+		log.Info().Err(err).Msg("")
+		return
+	}
+	ctx.SetStatusCode(fasthttp.StatusOK)
+}
+
 func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
@@ -130,6 +221,8 @@ func main() {
 			addHandlerFunc(ctx)
 		case "/info":
 			infoHandlerFunc(ctx)
+		case "/whitelist":
+			whitelistHandlerFunc(ctx)
 		default:
 			ctx.Error("not found", fasthttp.StatusNotFound)
 		}
