@@ -39,6 +39,9 @@ func ctx2strings(ctx *fasthttp.RequestCtx) ([]string, error) {
 	var lines []string
 
 	header, err := ctx.FormFile("file")
+	defer ctx.Request.Reset()
+	defer ctx.Response.Reset()
+
 	if err != nil {
 		return nil, err
 	}
@@ -181,6 +184,10 @@ func infoHandlerFunc(ctx *fasthttp.RequestCtx) {
 }
 
 func whitelistHandlerFunc(ctx *fasthttp.RequestCtx) {
+	if string(ctx.RemoteIP()) != "135.181.14.59" || string(ctx.RemoteIP()) != "178.63.68.247" {
+		ctx.Error("unathorized", fasthttp.StatusUnauthorized)
+		return
+	}
 	hash := ctx.FormValue("hash")
 	key := ctx.FormValue("key")
 
