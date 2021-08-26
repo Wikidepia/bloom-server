@@ -79,13 +79,15 @@ func isMember(key string, value string) (bool, error) {
 
 func deduplicateHandlerFunc(ctx *fasthttp.RequestCtx) {
 	var sb strings.Builder
+	var ip []byte
 
+	ip = append(ip, ctx.RemoteIP().String()...)
 	key := b2s(ctx.FormValue("key"))
 	if key != "main" && key != "clipped" && key != "urls" {
 		ctx.Error("key is not main, clipped or urls", fasthttp.StatusBadRequest)
 		return
 	}
-	hash := hex.EncodeToString(NewSHA256(ctx.RemoteIP()))
+	hash := hex.EncodeToString(NewSHA256(ip))
 	hashMember, err := isMember("whitelist-deduplicate", hash)
 	if err != nil {
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
@@ -123,13 +125,16 @@ func deduplicateHandlerFunc(ctx *fasthttp.RequestCtx) {
 }
 
 func addHandlerFunc(ctx *fasthttp.RequestCtx) {
+	var ip []byte
+
+	ip = append(ip, ctx.RemoteIP().String()...)
 	key := b2s(ctx.FormValue("key"))
 	if key != "main" && key != "clipped" && key != "urls" {
 		ctx.Error("key is not main, clipped or urls", fasthttp.StatusBadRequest)
 		return
 	}
 
-	hash := hex.EncodeToString(NewSHA256(ctx.RemoteIP()))
+	hash := hex.EncodeToString(NewSHA256(ip))
 	hashMember, err := isMember("whitelist-add", hash)
 	if err != nil {
 		ctx.Error(err.Error(), fasthttp.StatusBadRequest)
