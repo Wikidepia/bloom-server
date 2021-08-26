@@ -95,7 +95,7 @@ func deduplicateHandlerFunc(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	if !hashMember {
-		ctx.Error("hash is not in whitelist-deduplicate", fasthttp.StatusBadRequest)
+		ctx.Error("unathorized", fasthttp.StatusUnauthorized)
 		return
 	}
 
@@ -142,7 +142,7 @@ func addHandlerFunc(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	if !hashMember {
-		ctx.Error("hash is not in whitelist-add", fasthttp.StatusBadRequest)
+		ctx.Error("unathorized", fasthttp.StatusUnauthorized)
 		return
 	}
 
