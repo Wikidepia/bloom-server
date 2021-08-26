@@ -188,7 +188,7 @@ func infoHandlerFunc(ctx *fasthttp.RequestCtx) {
 }
 
 func whitelistHandlerFunc(ctx *fasthttp.RequestCtx) {
-	if ctx.RemoteIP().String() != "135.181.14.59" || ctx.RemoteIP().String() != "178.63.68.247" {
+	if ctx.RemoteIP().String() != "135.181.14.59" && ctx.RemoteIP().String() != "178.63.68.247" {
 		ctx.Error("unathorized", fasthttp.StatusUnauthorized)
 		return
 	}
