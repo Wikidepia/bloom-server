@@ -225,13 +225,13 @@ func main() {
 
 	m := func(ctx *fasthttp.RequestCtx) {
 		switch string(ctx.Path()) {
-		case "/deduplicate":
+		case "/deduplicate/":
 			deduplicateHandlerFunc(ctx)
-		case "/add":
+		case "/add/":
 			addHandlerFunc(ctx)
-		case "/info":
+		case "/info/":
 			infoHandlerFunc(ctx)
-		case "/whitelist":
+		case "/whitelist/":
 			whitelistHandlerFunc(ctx)
 		default:
 			ctx.Error("not found", fasthttp.StatusNotFound)
