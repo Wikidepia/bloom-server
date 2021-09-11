@@ -25,7 +25,6 @@ var (
 func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 	var sb strings.Builder
 	var lines []string
-	var duplicateCount uint64
 
 	key := r.Form.Get("key")
 	if key != "main" && key != "clipped" && key != "urls" {
@@ -56,8 +55,6 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 	for index, existNum := range result {
 		if existNum == 0 {
 			sb.WriteString(lines[index] + "\n")
-		} else {
-			duplicateCount++
 		}
 	}
 	fmt.Fprint(w, sb.String())
@@ -85,13 +82,20 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		lines = append(lines, scanner.Text())
 	}
 
-	_, err = client.BfAddMulti(key, lines)
+	result, err := client.BfAddMulti(key, lines)
 	if err != nil {
 		log.Info().Err(err).Msg("Redis Error BF.MADD")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+
+	deduplicated := 0
+	for _, existNum := range result {
+		if existNum == 0 {
+			deduplicated += 1
+		}
+	}
+	w.Write([]byte(fmt.Sprintf("%d", deduplicated)))
 }
 
 func infoHandler(w http.ResponseWriter, r *http.Request) {
