@@ -89,13 +89,13 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deduplicated := 0
+	added := 0
 	for _, existNum := range result {
 		if existNum == 0 {
-			deduplicated += 1
+			added += 1
 		}
 	}
-	w.Write([]byte(fmt.Sprintf("%d", deduplicated)))
+	w.Write([]byte(fmt.Sprintf("%d", added)))
 }
 
 func infoHandler(w http.ResponseWriter, r *http.Request) {
