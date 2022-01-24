@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"net/http"
-	_ "net/http/pprof"
 	"strings"
 
 	redisbloom "github.com/RedisBloom/redisbloom-go"
@@ -26,11 +25,7 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 	var sb strings.Builder
 	var lines []string
 
-	key := r.Form.Get("key")
-	if key != "main" && key != "clipped" && key != "urls" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
+	dedupIndex := make(map[int]struct{})
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		log.Info().Err(err).Msg("Error opening file")
@@ -41,20 +36,32 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		// Possible optimization
 		lines = append(lines, scanner.Text())
 	}
 
-	result, err := client.BfExistsMulti(key, lines)
-	if err != nil {
-		log.Info().Err(err).Msg("Redis Error BF.MEXISTS")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	keyParam := r.Form.Get("key")
+	keysParam := strings.Split(keyParam, ",")
+	for _, key := range keysParam {
+		if key != "main" && key != "clipped" && key != "urls" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 
-	for index, existNum := range result {
-		if existNum == 0 {
-			sb.WriteString(lines[index] + "\n")
+		result, err := client.BfExistsMulti(key, lines)
+		if err != nil {
+			log.Info().Err(err).Msg("Redis Error BF.MEXISTS")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		for index, existNum := range result {
+			if existNum == 0 {
+				if _, ok := dedupIndex[index]; !ok {
+					dedupIndex[index] = struct{}{}
+					sb.WriteString(lines[index])
+					sb.WriteString("\n")
+				}
+			}
 		}
 	}
 	fmt.Fprint(w, sb.String())
@@ -63,11 +70,6 @@ func deduplicateHandler(w http.ResponseWriter, r *http.Request) {
 func addHandler(w http.ResponseWriter, r *http.Request) {
 	var lines []string
 
-	key := r.Form.Get("key")
-	if key != "main" && key != "clipped" && key != "urls" {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
 	file, _, err := r.FormFile("file")
 	if err != nil {
 		log.Info().Err(err).Msg("Error opening file")
@@ -78,24 +80,32 @@ func addHandler(w http.ResponseWriter, r *http.Request) {
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		// Possible optimization
 		lines = append(lines, scanner.Text())
 	}
 
-	result, err := client.BfAddMulti(key, lines)
-	if err != nil {
-		log.Info().Err(err).Msg("Redis Error BF.MADD")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	addCount := 0
+	keyParam := r.Form.Get("key")
+	keysParam := strings.Split(keyParam, ",")
+	for _, key := range keysParam {
+		if key != "main" && key != "clipped" && key != "urls" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 
-	added := 0
-	for _, existNum := range result {
-		if existNum == 0 {
-			added += 1
+		result, err := client.BfAddMulti(key, lines)
+		if err != nil {
+			log.Info().Err(err).Msg("Redis Error BF.MADD")
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		for _, existNum := range result {
+			if existNum == 1 {
+				addCount += 1
+			}
 		}
 	}
-	w.Write([]byte(fmt.Sprintf("%d", added)))
+	fmt.Fprint(w, addCount)
 }
 
 func infoHandler(w http.ResponseWriter, r *http.Request) {
@@ -130,10 +140,6 @@ func makeHandler(fn func(w http.ResponseWriter, r *http.Request)) http.HandlerFu
 
 func main() {
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-
-	go func() {
-		http.ListenAndServe(":6060", nil)
-	}()
 
 	http.HandleFunc("/deduplicate/", makeHandler(deduplicateHandler))
 	http.HandleFunc("/add/", makeHandler(addHandler))
